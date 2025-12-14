@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Interstellar Heart Experience</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
+
+        :root {
+            --accent: #00f3ff; /* Cyan Neon */
+            --accent-glow: rgba(0, 243, 255, 0.4);
+            --bg: #050508;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg);
+            overflow: hidden;
+            font-family: 'Rajdhani', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 1;
+        }
+
+        /* --- UI CONTAINER --- */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        /* --- THE HOLD BUTTON --- */
+        .hold-btn-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            pointer-events: auto; /* Enable touch */
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.5s;
+        }
+
+        .hold-text {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--accent);
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        /* Lingkaran Luar (Static) */
+        .ring-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+
+        /* Lingkaran Progress (Animated SVG) */
+        svg.progress-ring {
+            width: 100%; height: 100%;
+            transform: rotate(-90deg);
+        }
+        
+        circle.progress-ring__circle {
+            stroke: var(--accent);
+            stroke-width: 4;
+            fill: transparent;
+            r: 56;
+            cx: 60;
+            cy: 60;
+            stroke-dasharray: 351.85; /* Keliling lingkaran 2*PI*r */
+            stroke-dashoffset: 351.85; /* Mulai kosong */
+            transition: stroke-dashoffset 0.1s linear; /* Smooth fill */
+            filter: drop-shadow(0 0 5px var(--accent));
+        }
+
+        /* Hint Text Bawah */
+        .hint {
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+        }
+
+        /* Custom Input Field (Cinematic) */
+        #input-area {
+            position: absolute;
+            bottom: 20%;
+            pointer-events: auto;
+            text-align: center;
+            transition: opacity 0.5s;
+        }
+        
+        input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-family: 'Cinzel', serif;
+            font-size: 1.5rem;
+            text-align: center;
+            width: 250px;
+            padding: 10px;
+            outline: none;
+        }
+        input::placeholder { color: rgba(255,255,255,0.2); }
+
+        /* Replay Button */
+        #replay-btn {
+            position: absolute;
+            bottom: 40px;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            background: rgba(0,0,0,0.5);
+            padding: 10px 30px;
+            font-family: 'Rajdhani', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.5s;
+            z-index: 20;
+        }
+        #replay-btn:hover { background: var(--accent); color: black; }
+
+        @keyframes pulse { 0%,100%{opacity:0.3;} 50%{opacity:0.8;} }
+        
+        /* Shake Animation Class */
+        .shaking { animation: shake 0.5s infinite; }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="input-area">
+            <input type="text" id="nameInput" placeholder="ENTER NAME" maxlength="15" autocomplete="off">
+        </div>
+
+        <div class="hold-btn-container" id="holdBtn">
+            <div class="ring-bg"></div>
+            <svg class="progress-ring">
+                <circle class="progress-ring__circle" id="progressCircle" />
+            </svg>
+            <div class="hold-text">HOLD</div>
+        </div>
+        
+        <div class="hint" id="hintText">Tekan & Tahan</div>
+    </div>
+
+    <button id="replay-btn" onclick="reset()">SYSTEM REBOOT</button>
+    <canvas id="canvas"></canvas>
+
+<script>
+/**
+ * INTERSTELLAR CONFIG
+ */
+const CONFIG = {
+    particleCount: window.innerWidth < 600 ? 500 : 1000, // Partikel optimal
+    connectionDistance: 100, // Jarak garis konstelasi
+    chargeTime: 2000, // Waktu tahan (ms)
+    colors: ['#00f3ff', '#0099ff', '#ffffff', '#ffd700'], // Cyan, Blue, White, Gold
+    heartSize: 15
+};
+
+// --- SYSTEM VARS ---
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let width, height;
+let particles = [];
+let phase = 'idle'; // idle, charging, exploding, heart
+let rotationAngle = 0; // Untuk rotasi 3D
+let customText = "";
+
+// --- HOLD BUTTON LOGIC ---
+const holdBtn = document.getElementById('holdBtn');
+const circle = document.getElementById('progressCircle');
+const hint = document.getElementById('hintText');
+const inputArea = document.getElementById('input-area');
+const uiLayer = document.getElementById('ui-layer');
+
+const circumference = 2 * Math.PI * 56; // 351.85
+circle.style.strokeDasharray = `${circumference} ${circumference}`;
+circle.style.strokeDashoffset = circumference;
+
+let holdStart = 0;
+let holdTimer = null;
+let isHolding = false;
+
+function setProgress(percent) {
+    const offset = circumference - (percent / 100) * circumference;
+    circle.style.strokeDashoffset = offset;
+}
+
+// Event Listeners untuk Hold
+function startHold(e) {
+    if(phase !== 'idle') return;
+    e.preventDefault(); // Mencegah menu klik kanan/scroll di HP
+    isHolding = true;
+    holdStart = Date.now();
+    holdBtn.style.transform = "scale(0.95)";
+    
+    // Mulai Charging Loop
+    requestAnimationFrame(updateCharge);
+}
+
+function endHold() {
+    isHolding = false;
+    holdBtn.style.transform = "scale(1)";
+    if(phase === 'idle') {
+        setProgress(0); // Reset jika belum penuh
+        document.body.classList.remove('shaking'); // Stop getar
+        phase = 'idle'; // Pastikan kembali ke idle
+    }
+}
+
+function updateCharge() {
+    if (!isHolding || phase !== 'idle') return;
+
+    const elapsed = Date.now() - holdStart;
+    const progress = Math.min((elapsed / CONFIG.chargeTime) * 100, 100);
+    setProgress(progress);
+
+    // Efek Getar Layar (Screen Shake)
+    if (progress > 50) {
+        document.body.classList.add('shaking');
+    }
+
+    // Jika Penuh -> LEDAKAN
+    if (progress >= 100) {
+        triggerExplosion();
+    } else {
+        requestAnimationFrame(updateCharge);
+    }
+}
+
+holdBtn.addEventListener('mousedown', startHold);
+holdBtn.addEventListener('touchstart', startHold);
+window.addEventListener('mouseup', endHold);
+window.addEventListener('touchend', endHold);
+
+
+// --- CANVAS SETUP ---
+function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+
+// --- PARTICLE CLASS ---
+class Particle {
+    constructor(index) {
+        this.index = index;
+        this.reset();
+    }
+
+    reset() {
+        // Posisi Acak
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        
+        // Velocity (Gerak Lambat)
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        
+        this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+        this.size = Math.random() * 2;
+        
+        // Target Hati (Pre-calculated)
+        const t = (this.index / CONFIG.particleCount) * Math.PI * 2;
+        this.hx = 16 * Math.pow(Math.sin(t), 3);
+        this.hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+        
+        // 3D Setup: Z coordinate acak untuk kedalaman saat rotasi
+        this.z = (Math.random() - 0.5) * 40; 
+    }
+
+    update() {
+        if (phase === 'idle' || phase === 'charging') {
+            this.x += this.vx;
+            this.y += this.vy;
+            
+            // Efek tersedot ke tengah saat charging
+            if (phase === 'charging') {
+                const dx = (width/2) - this.x;
+                const dy = (height/2) - this.y;
+                this.x += dx * 0.05;
+                this.y += dy * 0.05;
+            }
+
+            // Bounce off walls
+            if (this.x < 0 || this.x > width) this.vx *= -1;
+            if (this.y < 0 || this.y > height) this.vy *= -1;
+        }
+        else if (phase === 'exploding') {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vx *= 0.95; // Friction
+            this.vy *= 0.95;
+        }
+        else if (phase === 'heart') {
+            // LOGIKA 3D ROTASI
+            // Kita memutar koordinat X berdasarkan sumbu Y (rotateY)
+            const scale = CONFIG.heartSize;
+            
+            // Rotasi matematika sederhana
+            // x_rotated = x * cos(angle) - z * sin(angle)
+            // z_rotated = z * cos(angle) + x * sin(angle)
+            // Disini kita memutar 'hx' (posisi base hati)
+            
+            const cos = Math.cos(rotationAngle);
+            const sin = Math.sin(rotationAngle);
+            
+            // Posisi 3D yang sudah diputar
+            const rotX = (this.hx * cos - this.z * sin) * scale;
+            const rotY = this.hy * scale; // Y tetap
+            
+            // Target Layar
+            const tx = width / 2 + rotX;
+            const ty = height / 2 + rotY;
+            
+            // Lerp (Gerakan halus ke posisi)
+            this.x += (tx - this.x) * 0.05;
+            this.y += (ty - this.y) * 0.05;
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        // Ukuran berubah sedikit berdasarkan rotasi (simulasi kedalaman)
+        let s = this.size;
+        if(phase === 'heart') {
+             // Jika z di depan, lebih besar. Di belakang, lebih kecil.
+             // Kita pakai sin(rotationAngle) untuk menebak posisi relatif
+             // Ini hanya simulasi visual sederhana
+        }
+        ctx.arc(this.x, this.y, s, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Inisialisasi Partikel
+function init() {
+    particles = [];
+    for(let i=0; i<CONFIG.particleCount; i++) {
+        particles.push(new Particle(i));
+    }
+}
+
+// --- FUNGSI GAMBAR GARIS (CONSTELLATION) ---
+function drawConnections() {
+    if(phase !== 'idle') return; // Hanya gambar garis saat idle agar performa terjaga
+
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.15)'; // Warna garis cyan tipis
+    ctx.lineWidth = 0.5;
+
+    // Loop nested (berat, tapi oke untuk < 1000 partikel di PC)
+    // Untuk optimasi, kita hanya cek partikel terdekat dalam loop
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < CONFIG.connectionDistance) {
+                ctx.beginPath();
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+// --- ANIMATION LOOP ---
+function animate() {
+    // Background: Sedikit trail effect
+    ctx.fillStyle = 'rgba(5, 5, 8, 0.3)'; 
+    ctx.fillRect(0, 0, width, height);
+
+    if(phase === 'heart') {
+        rotationAngle += 0.02; // Kecepatan putar hati
+    }
+
+    // Gambar Garis (Rasi Bintang) - HANYA SAAT IDLE
+    // Kita batasi jumlah cek garis jika di HP agar tidak lag
+    if (phase === 'idle' && CONFIG.particleCount < 800) {
+        drawConnections();
+    }
+
+    // Gambar Partikel
+    // Gunakan 'lighter' untuk efek neon saat fase hati/charging
+    if(phase !== 'idle') ctx.globalCompositeOperation = 'lighter';
+    
+    particles.forEach(p => {
+        p.update();
+        p.draw();
+    });
+    
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Gambar Teks 3D (Simulasi)
+    if(phase === 'heart') {
+        ctx.fillStyle = "white";
+        ctx.font = "30px 'Cinzel'";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#00f3ff";
+        ctx.shadowBlur = 20;
+        ctx.fillText(customText, width/2, height/2);
+        ctx.shadowBlur = 0;
+    }
+
+    requestAnimationFrame(animate);
+}
+
+// --- LOGIKA ALUR (FLOW) ---
+
+function triggerExplosion() {
+    phase = 'charging'; // Transisi sebentar
+    document.body.classList.remove('shaking');
+    
+    // Ambil Teks
+    const inputVal = document.getElementById('nameInput').value;
+    customText = inputVal || "ETERNAL";
+
+    // UI Hilang
+    holdBtn.style.opacity = 0;
+    hint.style.opacity = 0;
+    inputArea.style.opacity = 0;
+    holdBtn.style.pointerEvents = "none";
+
+    // Efek Ledakan setelah 1 detik charging animation
+    setTimeout(() => {
+        phase = 'exploding';
+        
+        // Beri kecepatan ledak ke partikel
+        particles.forEach(p => {
+            const angle = Math.random() * Math.PI * 2;
+            const force = Math.random() * 30 + 10;
+            p.vx = Math.cos(angle) * force;
+            p.vy = Math.sin(angle) * force;
+        });
+
+        // Flash Screen
+        const flash = document.createElement('div');
+        flash.style.position = 'fixed'; flash.style.top = 0; flash.style.left = 0;
+        flash.style.width = '100%'; flash.style.height = '100%';
+        flash.style.background = '#00f3ff'; // Flash Cyan
+        flash.style.zIndex = 999;
+        flash.style.transition = 'opacity 0.5s';
+        document.body.appendChild(flash);
+        requestAnimationFrame(() => flash.style.opacity = 0);
+        setTimeout(() => flash.remove(), 500);
+
+        // Masuk ke fase Hati
+        setTimeout(() => {
+            phase = 'heart';
+            // Show Replay
+            const replayBtn = document.getElementById('replay-btn');
+            replayBtn.style.opacity = 1;
+            replayBtn.style.pointerEvents = 'auto';
+        }, 800);
+
+    }, 500);
+}
+
+function reset() {
+    phase = 'idle';
+    rotationAngle = 0;
+    init(); // Reset posisi partikel
+    
+    // Reset UI
+    holdBtn.style.opacity = 1;
+    hint.style.opacity = 1;
+    inputArea.style.opacity = 1;
+    holdBtn.style.pointerEvents = "auto";
+    setProgress(0);
+    
+    const replayBtn = document.getElementById('replay-btn');
+    replayBtn.style.opacity = 0;
+    replayBtn.style.pointerEvents = 'none';
+}
+
+// Mulai
+init();
+animate();
+
+</script>
+</body>
+</html>
